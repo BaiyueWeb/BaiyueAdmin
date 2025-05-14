@@ -20,6 +20,13 @@
             <button onclick="login()" class="bg-blue-500 text-white p-2 rounded">Đăng nhập</button>
         </div>
 
+        <!-- Form nhập token -->
+        <div id="token-section" class="mb-6 hidden">
+            <input type="password" id="github-token" class="border p-2 mr-2 w-full" placeholder="Nhập GitHub Personal Access Token">
+            <button onclick="validateToken()" class="bg-blue-500 text-white p-2 rounded">Xác thực</button>
+            <p id="token-error" class="error hidden"></p>
+        </div>
+
         <!-- Danh sách sản phẩm -->
         <div id="admin-section" class="hidden">
             <h2 class="text-xl font-semibold mb-2">Danh sách sản phẩm</h2>
@@ -56,8 +63,8 @@
 
     <script>
         const correctPassword = "admin123";
-        const githubToken = "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"; // CẢNH BÁO: Không an toàn nếu repo công khai
         const repo = "BaiyueWeb/BaiyueProducts";
+        let githubToken = "";
         let products = [];
         let isEditing = false;
 
@@ -65,21 +72,55 @@
             const password = document.getElementById("password").value;
             if (password === correctPassword) {
                 document.getElementById("login-section").classList.add("hidden");
-                document.getElementById("admin-section").classList.remove("hidden");
-                loadProducts();
+                document.getElementById("token-section").classList.remove("hidden");
             } else {
                 alert("Mật khẩu sai!");
+            }
+        }
+
+        async function validateToken() {
+            const tokenError = document.getElementById("token-error");
+            tokenError.classList.add("hidden");
+
+            githubToken = document.getElementById("github-token").value.trim();
+            if (!githubToken) {
+                tokenError.textContent = "Vui lòng nhập Personal Access Token!";
+                tokenError.classList.remove("hidden");
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repo}/contents/data.json`, {
+                    headers: {
+                        Authorization: `token ${githubToken}`,
+                        Accept: "application/vnd.github.v3+json"
+                    }
+                });
+                if (response.ok) {
+                    document.getElementById("token-section").classList.add("hidden");
+                    document.getElementById("admin-section").classList.remove("hidden");
+                    loadProducts();
+                } else {
+                    const errorData = await response.json();
+                    tokenError.textContent = `Token không hợp lệ: ${errorData.message}`;
+                    tokenError.classList.remove("hidden");
+                }
+            } catch (error) {
+                console.error("Lỗi khi xác thực token:", error);
+                tokenError.textContent = "Không thể xác thực token. Vui lòng kiểm tra kết nối hoặc token!";
+                tokenError.classList.remove("hidden");
             }
         }
 
         async function loadProducts() {
             try {
                 const response = await fetch(`https://raw.githubusercontent.com/${repo}/main/data.json`);
+                if (!response.ok) throw new Error(`Lỗi HTTP: ${response.status}`);
                 products = await response.json();
                 displayProducts();
             } catch (error) {
                 console.error("Lỗi khi tải sản phẩm:", error);
-                alert("Không thể tải dữ liệu sản phẩm!");
+                alert(`Không thể tải dữ liệu sản phẩm: ${error.message}`);
             }
         }
 
@@ -297,7 +338,7 @@
                 }
             } catch (error) {
                 console.error("Lỗi khi lưu sản phẩm:", error);
-                alert("Không thể lưu thay đổi lên GitHub!");
+                alert(`Không thể lưu thay đổi lên GitHub: ${error.message}`);
             }
         }
     </script>
